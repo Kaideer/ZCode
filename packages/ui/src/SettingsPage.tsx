@@ -70,6 +70,7 @@ import { PluginsSection } from "@/settings/PluginsSection.js";
 import { HooksSection } from "@/settings/HooksSection.js";
 import { WorkspaceFileSearchSection } from "@/settings/WorkspaceFileSearchSection.js";
 import { MemorySettingsSection } from "@/settings/MemorySettingsSection.js";
+import { ResponseReviewSection } from "@/settings/ResponseReviewSection.js";
 import { BrowserSettingsSection } from "@/settings/BrowserSettingsSection.js";
 import { ComputerUseSection } from "@/settings/ComputerUseSection.js";
 import { ShortcutSettingsSection } from "@/settings/ShortcutSettingsSection.js";
@@ -1830,6 +1831,13 @@ export function SettingsPage({
                               onMemoryEnabledChange={handleMemoryEnabledChange}
                               projectMemoryViewerAvailable={Boolean(isDesktop)}
                               workspaceDisplayNames={memoryWorkspaceDisplayNames}
+                            />
+                          </ServiceProvider>
+                        ) : activeSection === "responseReview" ? (
+                          <ServiceProvider services={localHostServices}>
+                            {/* 审核模型 Registry 属本机事实源，与模型供应商分区同一语义。 */}
+                            <ResponseReviewSection
+                              modelSelectionService={localHostServices.modelSelectionService}
                             />
                           </ServiceProvider>
                         ) : activeSection === "plugin" ? (

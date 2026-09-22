@@ -36,6 +36,7 @@ import {
 } from "../browser-use/backend.js";
 import { browserCommandResultSchema } from "../browser-use/result.js";
 import { integratedTerminalShellSelectionSchema } from "../validationAppSettings.js";
+import { responseReviewConfigSchema } from "../response-review.js";
 import { zcodeTaskModeSchema } from "../zcode-task-mode-schema.js";
 import { OFFICIAL_MCP_AUTH_PORT_FAILURE_REASONS } from "../official-mcp-auth.js";
 import {
@@ -1709,6 +1710,8 @@ export const zcodeSessionRuntimePreferencesResultSchema = z
     modelContextBudgetStrategy: zcodeModelContextBudgetStrategySchema.default(
       DEFAULT_ZCODE_MODEL_CONTEXT_BUDGET_STRATEGY,
     ),
+    // 回复审核 Response Review 配置；旧 Host 缺失该字段时 CLI 按「关闭」处理。
+    responseReview: responseReviewConfigSchema.optional(),
   })
   .strict();
 export type ZCodeSessionRuntimePreferencesResult = z.infer<
@@ -2179,6 +2182,8 @@ export type ZCodeProviderUpdateAccountConfigResult = z.infer<
 export const zcodeInteractionPreferencesSchema = z
   .object({
     askUserQuestionAutoResolutionEnabled: z.boolean(),
+    // 回复审核配置实时下发；缺省表示本次变更不涉及回复审核（CLI 保持现值）。
+    responseReview: responseReviewConfigSchema.optional(),
   })
   .strict();
 export type ZCodeInteractionPreferences = z.infer<typeof zcodeInteractionPreferencesSchema>;

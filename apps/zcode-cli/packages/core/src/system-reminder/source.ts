@@ -35,6 +35,8 @@ export const SYSTEM_REMINDER_PERSISTED_SOURCES = [
   "selection_side_chat",
   "queued_system_notification",
   "shell_environment_change",
+  // 回复审核 Response Review 不通过时注入的审核意见，供同轮续写修正。
+  "response_review",
 ] as const;
 
 export const SYSTEM_REMINDER_PER_REQUEST_SOURCES = [
@@ -161,6 +163,7 @@ const SYSTEM_REMINDER_DESCRIPTORS: Record<SystemReminderSource, DescriptorShape>
     "sr.shell_environment_change",
   ),
   diagnostics: descriptor("mid_turn_event", "mid_turn_event", true, "sr.diagnostics"),
+  response_review: descriptor("current_turn", "per_current_turn", true, "sr.response_review"),
 };
 
 export const SYSTEM_REMINDER_SOURCES = Object.freeze([

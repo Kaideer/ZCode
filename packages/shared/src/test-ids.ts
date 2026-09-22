@@ -369,6 +369,14 @@ export const TID_RESOURCE_MANAGER_STORAGE_CONFIRM_CANCEL =
   "resource-manager-storage-confirm-cancel";
 /** Memory 设置模块中的总开关 */
 export const TID_SETTINGS_MEMORY_SWITCH = "settings-memory-switch";
+/** 回复审核 Response Review 设置分区的总开关 */
+export const TID_SETTINGS_RESPONSE_REVIEW_SWITCH = "settings-response-review-switch";
+/** 回复审核模式选择触发器 */
+export const TID_SETTINGS_RESPONSE_REVIEW_MODE_TRIGGER = "settings-response-review-mode-trigger";
+/** 回复审核审核模型选择触发器 */
+export const TID_SETTINGS_RESPONSE_REVIEW_MODEL_TRIGGER = "settings-response-review-model-trigger";
+/** 回复审核思考强度选择触发器 */
+export const TID_SETTINGS_RESPONSE_REVIEW_THOUGHT_TRIGGER = "settings-response-review-thought-trigger";
 /** Memory 设置模块刷新按钮 */
 export const TID_SETTINGS_MEMORY_REFRESH = "settings-memory-refresh";
 /** Memory Workspace Scope 菜单触发器 */

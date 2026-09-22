@@ -82,6 +82,9 @@ export {
   createSettingService,
   createSettingServiceWithMigrations,
 } from "./setting/settingService.js";
+// setting.json 的定位（含按桌面应用实例分区）收口在 settingsInstanceDir，
+// desktop main 的早期 bootstrap 与 settingService 共用同一规则。
+export { getSettingsFile } from "./setting/settingsInstanceDir.js";
 export { createCredentialService } from "./credential/credentialService.js";
 export { createBroadcastService } from "./broadcast/broadcastService.js";
 export { createZCodeAgentService } from "./zcode-agent/zcodeAgentService.js";
@@ -494,6 +497,8 @@ import { DEV_HELPER_APP_NAME, HELPER_APP_NAME } from "@zcode/zcode-cua/broker/he
 import { resolveBrokerSocketPath } from "@zcode/zcode-cua/broker/socketPath";
 import {
   DEFAULT_ZCODE_MODEL_CONTEXT_BUDGET_STRATEGY,
+  DEFAULT_RESPONSE_REVIEW_MAX_ROUNDS,
+  DEFAULT_RESPONSE_REVIEW_TIMEOUT_MS,
   resolveSafeEndpointHostname,
   ZCODE_JWT_INVALID_BROADCAST_CHANNEL,
   formatLogPrefix,
@@ -2252,6 +2257,19 @@ export function createLocalServices(options: {
               nativeSearchEnhancementsEnabled: settings.nativeSearchEnhancementsEnabled !== false,
               memoryEnabled: settings.memoryEnabled === true,
               modelContextBudgetStrategy,
+              // 回复审核 Response Review：会话创建时下发当前配置；
+              // 审核模型缺省时由 CLI sidecar 在运行时跟随会话主模型。
+              responseReview: {
+                enabled: settings.responseReviewEnabled === true,
+                mode: settings.responseReviewMode ?? "append",
+                // 持久化态不应出现 followSession 哨兵（写入路径已归一），此处按类型边界显式窄化。
+                ...(settings.responseReviewModelSelection &&
+                !("followSession" in settings.responseReviewModelSelection)
+                  ? { modelSelection: settings.responseReviewModelSelection }
+                  : {}),
+                maxRounds: DEFAULT_RESPONSE_REVIEW_MAX_ROUNDS,
+                timeoutMs: DEFAULT_RESPONSE_REVIEW_TIMEOUT_MS,
+              },
               // user-execution 只消费 Shell；共享默认策略是统一 result schema 的兼容占位，
               // 不会覆盖 runtime-materialization 阶段已经固定的 strategy。
               ...(scope === "user-execution" && settings.integratedTerminalShell

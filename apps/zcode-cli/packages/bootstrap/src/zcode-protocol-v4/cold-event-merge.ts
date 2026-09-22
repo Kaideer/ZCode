@@ -166,6 +166,9 @@ const MEMORY_ONLY_EVENT_TYPES = new Set<string>([
   SessionEventType.DynamicWorkflowRunProgress,
   SessionEventType.TargetChanged,
   SessionEventType.RewindTriggered,
+  // 回复审核 Response Review：权威事实只有事件日志（不落 session store、不从
+  // durable transcript 合成），与 DynamicWorkflowRunProgress 同类按 memory-only 保留。
+  SessionEventType.AssistantReview,
 ]);
 
 const TRANSCRIPT_DERIVED_EVENT_TYPES = new Set<string>([

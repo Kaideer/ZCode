@@ -21,6 +21,7 @@ import type {
   WorkspaceId,
 } from "@zcode/contracts";
 import type { ZCodeProviderAccountAccess } from "@zcode/shared";
+import type { ResponseReviewMode } from "@zcode/shared";
 import type { EffectiveModelSelectionResult } from "@zcode/shared/model-selection";
 import type { RuntimeMessageEntry } from "../agent/message-history.js";
 import type {
@@ -200,6 +201,19 @@ export interface AgentRuntimeConfig {
   titleGeneration?: {
     enabled?: boolean;
     modelSelection?: ModelSelection;
+    timeoutMs?: number;
+  };
+  /**
+   * 回复审核 Response Review 配置；enabled !== true 时全流程不产生审核调用与事件。
+   * modelSelection 缺省时由 sidecar 在运行时跟随会话当前模型与 reasoningLevel，
+   * 不在入口层固化，避免切模型后审核仍使用旧选择。
+   */
+  responseReview?: {
+    enabled?: boolean;
+    mode?: ResponseReviewMode;
+    modelSelection?: ModelSelection;
+    /** regenerate 模式的同轮续写轮次上限；达到上限无条件放行收口。 */
+    maxRounds?: number;
     timeoutMs?: number;
   };
   parentSessionId?: SessionId;

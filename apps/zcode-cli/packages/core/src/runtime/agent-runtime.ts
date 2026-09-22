@@ -354,6 +354,8 @@ export interface AgentRuntime {
   ): Promise<void>;
   getSessionModelSelection(): ModelSelection | undefined;
   setSessionModelSelection(selection: ModelSelection | undefined): void;
+  /** 实时更新回复审核配置（设置页修改后由 Host 推送）；对后续 turn 生效。 */
+  updateResponseReviewConfig(config: AgentRuntimeConfig["responseReview"]): void;
   getProjectId(): ProjectId;
   ensureSessionPersistedForExternalActivity(
     input: string,

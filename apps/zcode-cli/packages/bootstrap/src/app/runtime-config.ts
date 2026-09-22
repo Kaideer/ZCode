@@ -3,6 +3,10 @@ import { resolveInitialModelSelection, type ModelSelectionOptions } from "@zcode
 import { resolveBashTimeoutPolicy, type AgentProfile, type AgentRuntimeConfig } from "@zcode/core";
 import { type BuiltInSubagentModelSelectionOverrides } from "@zcode/shared";
 import {
+  DEFAULT_RESPONSE_REVIEW_MAX_ROUNDS,
+  DEFAULT_RESPONSE_REVIEW_TIMEOUT_MS,
+} from "@zcode/shared";
+import {
   type CollaborationMode,
   type HookConfigSource,
   type HookEventName,
@@ -87,6 +91,18 @@ export function resolveAppRuntimeConfig(input: {
               }
             : {}),
         };
+  // 回复审核 Response Review：与 titleGeneration 同理，不在入口层固化审核模型，
+  // 缺省时由 sidecar 在运行时跟随会话当前模型；统一补默认模式/轮次上限/超时。
+  const requestedResponseReview = options.runtimeConfig?.responseReview;
+  const responseReview =
+    requestedResponseReview === undefined
+      ? undefined
+      : {
+          ...requestedResponseReview,
+          mode: requestedResponseReview.mode ?? "append",
+          maxRounds: requestedResponseReview.maxRounds ?? DEFAULT_RESPONSE_REVIEW_MAX_ROUNDS,
+          timeoutMs: requestedResponseReview.timeoutMs ?? DEFAULT_RESPONSE_REVIEW_TIMEOUT_MS,
+        };
   // Protocol session/create 传入的 mcp.servers 只包含 UI MCP 设置里的用户配置，
   // 不包含插件注册的 MCP。宿主内建 server 最后合并并保留其 identity，避免用户或第三方
   // 用同名配置劫持 mcp__node_repl__*；普通 plugin MCP 仍允许显式用户配置覆盖。
@@ -136,6 +152,7 @@ export function resolveAppRuntimeConfig(input: {
     runtimeFeatures: pluginRuntimeFeatures,
     language: options.runtimeConfig?.language,
     titleGeneration,
+    responseReview,
     workingDirectory,
     userInstructions: {
       ...userInstructions,

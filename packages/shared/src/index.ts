@@ -64,6 +64,8 @@ export {
   ZCODE_PRODUCT_FLAVOR,
   ZCODE_APP_VERSION_ENV,
   ZCODE_BUILD_COMMIT_ID_ENV,
+  ZCODE_DESKTOP_APPLICATION_NAME_ENV,
+  DEFAULT_ZCODE_APPLICATION_NAME,
   RUNTIME_ZCODE_DEBUG,
   ZCODE_TELEMETRY_REPORT_ENDPOINT,
   ZCODE_ARMS_RUM_ENDPOINT,
@@ -258,6 +260,7 @@ export * from "./subagents-types.js";
 export * from "./settings-source.js";
 export * from "./settings-errors.js";
 export * from "./app-runtime-preferences.js";
+export * from "./response-review.js";
 export * from "./command-types.js";
 export * from "./plugin-marketplaces.js";
 export * from "./lineChangeStat.js";

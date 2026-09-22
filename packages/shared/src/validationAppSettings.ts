@@ -10,6 +10,11 @@ import {
   embeddedBrowserViewportPreferenceSchema,
 } from "./browser-use/command-metadata.js";
 import { providerFamilyConnectionSelectionSettingsSchema } from "./provider-family-connection-selection.js";
+import { modelSelectionSchema } from "./model-selection.js";
+import {
+  responseReviewModeSchema,
+  responseReviewModelSelectionSettingSchema,
+} from "./response-review.js";
 
 /** 引导职业枚举；单独导出供 onboarding 记录回填 settings 时做窄化校验。 */
 const appSettingsOccupationSchema = z.enum([
@@ -462,6 +467,10 @@ const appSettingsObjectSchema = z.object({
   onboardingOccupation: appSettingsOccupationSchema.nullish(),
   proactiveSuggestionsEnabled: z.boolean().optional(),
   memoryEnabled: z.boolean().default(false),
+  // 回复审核 Response Review：开关默认关闭；模式默认 append；审核模型缺省时跟随会话主模型。
+  responseReviewEnabled: z.boolean().default(false),
+  responseReviewMode: responseReviewModeSchema.default("append"),
+  responseReviewModelSelection: modelSelectionSchema.optional(),
   lastWorkspaceSession: z.array(appWorkspaceSessionEntrySchema).default([]),
   lastActiveTabIndex: z.number().int().nonnegative().default(0),
   lastActiveTaskByWorkspace: z.record(z.string(), z.string()).optional(),
@@ -547,6 +556,9 @@ export const appSettingsPatchSchema = z.object({
     .nullish(),
   proactiveSuggestionsEnabled: z.boolean().optional(),
   memoryEnabled: z.boolean().optional(),
+  responseReviewEnabled: z.boolean().optional(),
+  responseReviewMode: responseReviewModeSchema.optional(),
+  responseReviewModelSelection: responseReviewModelSelectionSettingSchema.optional(),
   lastWorkspaceSession: z.array(appWorkspaceSessionEntrySchema).optional(),
   lastActiveTabIndex: z.number().int().nonnegative().optional(),
   lastActiveTaskByWorkspace: z.record(z.string(), z.string()).optional(),

@@ -39,6 +39,14 @@ export const ZCODE_PRODUCT_FLAVOR = normalizeZCodeProductFlavor(
 );
 export const ZCODE_APP_VERSION_ENV = "ZCODE_APP_VERSION" as const;
 export const ZCODE_BUILD_COMMIT_ID_ENV = "ZCODE_BUILD_COMMIT_ID" as const;
+/**
+ * 桌面应用名 env：Main 解析（显式覆盖 → 开发态 ZCode Dev → Preview → 正式版）后
+ * 回写本进程并下发 host，services 据此把 setting.json 按应用实例分区，
+ * 避免新旧版本进程整文件重写时互相 strip 对方 schema 尚不认识的设置键。
+ */
+export const ZCODE_DESKTOP_APPLICATION_NAME_ENV = "ZCODE_DESKTOP_APPLICATION_NAME" as const;
+/** 打包正式版应用名；settings 等按应用实例分区的数据以它为「不分区」的缺省哨兵。 */
+export const DEFAULT_ZCODE_APPLICATION_NAME = "ZCode" as const;
 
 // ── 运行时环境变量（不经过编译打包，启动时从 process.env 读取） ──
 // 启用调试模式，值为 inspect-brk 的端口号，如 ZCODE_DEBUG=9230

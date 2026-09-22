@@ -333,6 +333,11 @@ function sanitizeUnsupportedShareStructures(rows: readonly ConversationRow[]): C
       sanitized.push(rest);
       continue;
     }
+    if (row.kind === "assistantReview") {
+      // 审核卡是主回复的附加增强：append 模式的 running 审核不阻断主内容分享（轮本身已定稿，
+      // regenerate 的运行中轮次仍由 running_turn 阻断）；V1 公开投影渲染不承载该行，静默剥掉。
+      continue;
+    }
     if (row.kind === "timelineMarker") {
       // 运行中的 marker 留着，让 collectShareStructureIssues 照旧阻断——内容尚未定稿。
       // 被阻断的发布不会进入投影，保留该 marker 无副作用。

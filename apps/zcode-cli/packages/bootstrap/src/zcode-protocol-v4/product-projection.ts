@@ -49,6 +49,7 @@ import type {
   WorkspaceHookReviewSettledPayload,
   WorkspaceHookReviewSupersededPayload,
   WorkspaceHookAdmissionUpdatedPayload,
+  AssistantReviewPayload,
 } from "@zcode/contracts";
 import {
   CoreErrorType,
@@ -72,10 +73,12 @@ import {
   WORKFLOW_REFINE_PERMISSION_OPTION_ID,
   ZCODE_FILE_STREAMING_TOOL_INPUT_PREVIEW_MIN_INTERVAL_MS,
   zcodeBackgroundTaskNotificationToolUpdateStatus,
+  formatModelPickerValue,
 } from "@zcode/shared";
 import type {
   AssistantTextRow,
   ApiRetryState,
+  AssistantReviewRow,
   BackgroundWorkSummary,
   CuaAppIdentity,
   ConversationDelta,
@@ -454,6 +457,8 @@ export class ProductProjection {
   // （verificationId 仅 attempt alias——同 iteration 重试携带新 verificationId，
   // 旧实现按 verificationId keying 会长出第二个 marker）。
   private goalVerifyMarkerRowIdByLifecycleKey = new Map<string, number>();
+  // 回复审核卡片身份 = reviewId（started/completed/failed 归并到同一行）。
+  private assistantReviewRowIdByLifecycleKey = new Map<string, number>();
   // queue drain 在同一 runtimeTurn 内切出新的
   // product turn。runtimeTurnId → 当前 productTurnId 映射；后续事件行经 turnIdOf
   // 归入最新 productTurn。steer（guide）不切轮，内联当前轮。
@@ -1107,6 +1112,9 @@ export class ProductProjection {
     clone.turnHeaderRowIdByTurnId = new Map(this.turnHeaderRowIdByTurnId);
     clone.compactMarkerRowIdByOperationId = new Map(this.compactMarkerRowIdByOperationId);
     clone.goalVerifyMarkerRowIdByLifecycleKey = new Map(this.goalVerifyMarkerRowIdByLifecycleKey);
+    // 裸对象克隆不走字段初始化器：漏拷该侧表会让 atomic 路径上的审核事件在
+    // onAssistantReview 里读到 undefined 直接 TypeError，事件被当投影故障丢弃。
+    clone.assistantReviewRowIdByLifecycleKey = new Map(this.assistantReviewRowIdByLifecycleKey);
     clone.productTurnIdByRuntimeTurnId = new Map(this.productTurnIdByRuntimeTurnId);
     clone.runtimeTurnIdByProductTurnId = new Map(this.runtimeTurnIdByProductTurnId);
     clone.productTurnSplitOrdinalByRuntimeTurnId = new Map(
@@ -1152,6 +1160,7 @@ export class ProductProjection {
     this.turnHeaderRowIdByTurnId = candidate.turnHeaderRowIdByTurnId;
     this.compactMarkerRowIdByOperationId = candidate.compactMarkerRowIdByOperationId;
     this.goalVerifyMarkerRowIdByLifecycleKey = candidate.goalVerifyMarkerRowIdByLifecycleKey;
+    this.assistantReviewRowIdByLifecycleKey = candidate.assistantReviewRowIdByLifecycleKey;
     this.productTurnIdByRuntimeTurnId = candidate.productTurnIdByRuntimeTurnId;
     this.runtimeTurnIdByProductTurnId = candidate.runtimeTurnIdByProductTurnId;
     this.productTurnSplitOrdinalByRuntimeTurnId = candidate.productTurnSplitOrdinalByRuntimeTurnId;
@@ -1408,6 +1417,11 @@ export class ProductProjection {
         return this.onTurnComplete(event);
       case SessionEventType.TurnError:
         return this.onTurnError(event);
+      // 回复审核 marker：append 模式的审核事件出现在 TurnComplete 之后；漏掉
+      // 该 case 时事件会落进 default 被静默丢弃，onAssistantReview 形同虚设，
+      // 审核卡在任何链路（live/cold）都不渲染，用户侧表现为"审核从未触发"。
+      case SessionEventType.AssistantReview:
+        return this.onAssistantReview(event);
       case SessionEventType.CompactStarted:
       case SessionEventType.CompactCompleted:
       case SessionEventType.CompactFailed:
@@ -1981,7 +1995,7 @@ export class ProductProjection {
             `model-change:${turnId}:${this.lastTurnModel.provider}/${this.lastTurnModel.model}->${config.provider}/${config.model}`,
           ),
           kind: "timelineMarker",
-        // lane 由投影裁决（UI 不得按 marker type 自行推断落位语义）。
+          // lane 由投影裁决（UI 不得按 marker type 自行推断落位语义）。
           lane: "lightBoundary",
           marker: {
             type: "modelChange",
@@ -4973,6 +4987,85 @@ export class ProductProjection {
     payload: TargetCompletionVerificationPayload,
     event: SessionEvent,
   ): string {
+    const anchorMessageId = payload.anchorAssistantMessageId
+      ? String(payload.anchorAssistantMessageId)
+      : null;
+    if (anchorMessageId) {
+      const rowId = this.rowIdForMessageId(anchorMessageId);
+      const row = rowId !== null ? this.findRow(rowId) : undefined;
+      if (row) return row.turnId;
+    }
+    const anchorTurnId = payload.anchorTurnId ? String(payload.anchorTurnId) : null;
+    if (anchorTurnId) {
+      const mapped = this.productTurnIdByRuntimeTurnId.get(anchorTurnId) ?? anchorTurnId;
+      if (this.turnHeaderRowIdByTurnId.has(mapped)) return mapped;
+    }
+    return this.turnIdOf(event);
+  }
+
+  // ── assistant review marker（回复审核 Response Review）──
+  // 只投影行、不动 control：regenerate 的审核在轮内（control 本就 running），
+  // append 的审核在轮后（phase 已收口，不拉回 running）；审核中指示由行 running 态承担。
+
+  private onAssistantReview(event: SessionEvent): ConversationDelta[] {
+    const payload = event.payload as AssistantReviewPayload;
+    const lifecycleKey = payload.reviewId;
+    const turnId = this.assistantReviewTurnId(payload, event);
+
+    if (payload.status === "started") {
+      // 与 GV-identity 同理：同一 reviewId 的重复 started 复用原行回到 running，不长第二行。
+      const existingRowId = this.assistantReviewRowIdByLifecycleKey.get(lifecycleKey);
+      const existingRow = existingRowId !== undefined ? this.findRow(existingRowId) : undefined;
+      if (existingRow?.kind === "assistantReview") {
+        return [{ op: "row.upserted", row: { ...existingRow, state: "running" } }];
+      }
+      const row: AssistantReviewRow = {
+        ...this.rowBase(event, turnId, lifecycleKey),
+        kind: "assistantReview",
+        mode: payload.mode,
+        round: payload.round,
+        state: "running",
+        ...(payload.reviewerModelSelection
+          ? { reviewerLabel: formatModelPickerValue(payload.reviewerModelSelection) }
+          : {}),
+      };
+      this.assistantReviewRowIdByLifecycleKey.set(lifecycleKey, row.rowId);
+      return [{ op: "row.appended", row }];
+    }
+
+    // 终态：completed（pass/issues）/ failed / cancelled。
+    // 与 GV-terminal-only 同理：started 帧缺失时按 lifecycleKey 直接创建终态行。
+    const terminalState: "complete" | "failed" =
+      payload.status === "completed" ? "complete" : "failed";
+    const terminalBody =
+      payload.status === "completed" ? payload.body : (payload.body ?? payload.reason);
+    const terminalPatch = {
+      state: terminalState,
+      ...(payload.outcome ? { outcome: payload.outcome } : {}),
+      ...(terminalBody ? { body: terminalBody } : {}),
+      ...(payload.releasedAfterMaxRounds ? { releasedAfterMaxRounds: true } : {}),
+    } as const;
+    const existingRowId = this.assistantReviewRowIdByLifecycleKey.get(lifecycleKey);
+    const existingRow = existingRowId !== undefined ? this.findRow(existingRowId) : undefined;
+    if (existingRow?.kind === "assistantReview") {
+      return [{ op: "row.upserted", row: { ...existingRow, ...terminalPatch } }];
+    }
+    const row: AssistantReviewRow = {
+      ...this.rowBase(event, turnId, lifecycleKey),
+      kind: "assistantReview",
+      mode: payload.mode,
+      round: payload.round,
+      ...terminalPatch,
+      ...(payload.reviewerModelSelection
+        ? { reviewerLabel: formatModelPickerValue(payload.reviewerModelSelection) }
+        : {}),
+    };
+    this.assistantReviewRowIdByLifecycleKey.set(lifecycleKey, row.rowId);
+    return [{ op: "row.appended", row }];
+  }
+
+  private assistantReviewTurnId(payload: AssistantReviewPayload, event: SessionEvent): string {
+    // 审核卡挂到被审核 assistant 消息所在的轮；锚点缺失时按 anchorTurnId / 事件自身轮回落。
     const anchorMessageId = payload.anchorAssistantMessageId
       ? String(payload.anchorAssistantMessageId)
       : null;

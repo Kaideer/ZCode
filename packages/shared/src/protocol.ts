@@ -5,6 +5,7 @@ import type { ProviderFamilyConnectionSelectionSettings } from "./provider-famil
 import type { ZCodeProvider } from "./zcode-task-types-core.js";
 import type { WorkspacePurpose } from "./workspacePurpose.js";
 import type { EmbeddedBrowserViewportPreference } from "./browser-use/command-metadata.js";
+import type { ResponseReviewMode, ResponseReviewModelSelectionSetting } from "./response-review.js";
 
 // ── Domain types ──
 
@@ -323,6 +324,12 @@ export interface AppSettings {
   nativeSearchEnhancementsEnabled?: boolean;
   /** 新建或冷恢复 Session 是否启用 Memory；默认关闭。 */
   memoryEnabled?: boolean;
+  /** 回复审核 Response Review 总开关；开启后由第二个模型审核主模型结论。 */
+  responseReviewEnabled?: boolean;
+  /** 审核模式：append=流式先行+审核追加；regenerate=审核不通过则同轮续写修正（有轮次上限）。 */
+  responseReviewMode?: ResponseReviewMode;
+  /** 审核模型选择（含思考强度 reasoningLevel）；followSession 哨兵仅存在于写入路径，持久化态缺省即跟随会话主模型。 */
+  responseReviewModelSelection?: ResponseReviewModelSelectionSetting;
   onboardingOccupation?:
     | "office"
     | "developer"

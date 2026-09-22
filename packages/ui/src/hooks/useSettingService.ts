@@ -2,7 +2,12 @@
  * useSettingService —— 设置服务 hooks
  */
 import { useState, useEffect, useCallback } from "react";
-import { APP_RUNTIME_PREFERENCES_CHANGED_BROADCAST_CHANNEL, type AppSettings } from "@zcode/shared";
+import {
+  APP_RUNTIME_PREFERENCES_CHANGED_BROADCAST_CHANNEL,
+  DEFAULT_RESPONSE_REVIEW_MAX_ROUNDS,
+  DEFAULT_RESPONSE_REVIEW_TIMEOUT_MS,
+  type AppSettings,
+} from "@zcode/shared";
 import type { ISettingService } from "@zcode/services";
 import { useServices } from "./useServices.js";
 import { usePlatform } from "./usePlatform.js";
@@ -142,10 +147,19 @@ export function useSettings() {
       await settingService.update(patch);
       platform.syncAppSettings?.(patch);
       await refresh();
+      // 回复审核任一字段变化都需要实时下发完整配置（enabled/mode/modelSelection 是一个整体）。
+      const touchesResponseReview =
+        patch.responseReviewEnabled !== undefined ||
+        patch.responseReviewMode !== undefined ||
+        patch.responseReviewModelSelection !== undefined;
       if (
         typeof patch.askUserQuestionAutoResolutionEnabled === "boolean" ||
-        typeof patch.modelIoFullRetentionEnabled === "boolean"
+        typeof patch.modelIoFullRetentionEnabled === "boolean" ||
+        touchesResponseReview
       ) {
+        // refresh 后 snapshot 已合并本次 patch，审核配置直接读最新值组装。
+        const nextSettings = settingsStore.snapshot.settings;
+        const nextReviewSelection = nextSettings?.responseReviewModelSelection;
         const preferences = {
           askUserQuestionAutoResolutionEnabled:
             patch.askUserQuestionAutoResolutionEnabled ??
@@ -153,6 +167,19 @@ export function useSettings() {
           modelIoFullRetentionEnabled:
             patch.modelIoFullRetentionEnabled ??
             settingsStore.snapshot.settings?.modelIoFullRetentionEnabled === true,
+          ...(touchesResponseReview
+            ? {
+                responseReview: {
+                  enabled: nextSettings?.responseReviewEnabled === true,
+                  mode: nextSettings?.responseReviewMode ?? ("append" as const),
+                  ...(nextReviewSelection && !("followSession" in nextReviewSelection)
+                    ? { modelSelection: nextReviewSelection }
+                    : {}),
+                  maxRounds: DEFAULT_RESPONSE_REVIEW_MAX_ROUNDS,
+                  timeoutMs: DEFAULT_RESPONSE_REVIEW_TIMEOUT_MS,
+                },
+              }
+            : {}),
         };
         const syncResults = await Promise.allSettled([
           zcodeAgentService.syncAppRuntimePreferences(preferences),

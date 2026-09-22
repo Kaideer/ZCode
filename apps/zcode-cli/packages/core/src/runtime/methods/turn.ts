@@ -52,6 +52,7 @@ import {
   maybeStartSessionTitleGeneration,
 } from "./session-title.js";
 import type { RegularTurnLoopState } from "./turn-loop-state.js";
+import { runResponseReview } from "./response-review-sidecar.js";
 import { finishOutputTokenRecovery } from "./turn-output-token-continuation.js";
 import { recordTurnUsageFact } from "./usage-observability.js";
 import { persistStableForkCompletionBoundary } from "./stable-fork-boundary.js";
@@ -589,6 +590,7 @@ export async function executeTurnCommand(
           repeatedToolCallSignature: undefined,
           repeatedToolCallStreakCount: 0,
           stopHookContinuationCount: 0,
+          responseReviewContinuationCount: 0,
           streamRecoveryRetryCount: 0,
           tokenCount: 0,
           toolCallCount: 0,
@@ -683,6 +685,31 @@ export async function executeTurnCommand(
             userMessageId,
             turnTraceContext,
           );
+        }
+        // 回复审核（append 模式）：与标题生成同级放在 TurnComplete 之后，
+        // 规避请求前刷新 runtime headers 的鉴权窗口冲突；detached 发起，不阻塞轮结果。
+        if (
+          this.config.responseReview?.enabled === true &&
+          this.config.responseReview?.mode !== "regenerate" &&
+          loopState.modelResponse.trim().length > 0
+        ) {
+          const responseReviewWork = runResponseReview.call(this, {
+            assistantText: loopState.modelResponse,
+            mode: "append",
+            round: 0,
+            traceContext: turnTraceContext,
+            anchorAssistantMessageId: loopState.stableBoundaryAssistantMessageId,
+            anchorTurnId: turnId,
+          });
+          // detached sidecar 一律登记常驻阻塞，防止审核在飞时会话被按 idle 回收。
+          void this.trackResidencyBlockingWork(responseReviewWork).catch((error: unknown) => {
+            this.logger?.warn("Response review detached work failed", {
+              ...traceContextToLogContext(turnTraceContext),
+              event: "response_review.detached_failed",
+              module: "core.runtime",
+              reason: error instanceof Error ? error.message : String(error),
+            });
+          });
         }
         this.turnNumber++;
 

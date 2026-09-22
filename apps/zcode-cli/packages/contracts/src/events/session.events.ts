@@ -1,4 +1,5 @@
 import type { ExecutionOutputPreview } from "../interfaces/execution.port.js";
+import type { ResponseReviewMode } from "@zcode/shared";
 import type { RuntimeInputPresentation } from "../interfaces/runtime-input-presentation.js";
 /* eslint-disable max-lines -- session event 契约集中在单文件导出，避免 app/agent 协议类型分散后漂移。 */
 // ============================================================
@@ -164,6 +165,8 @@ export const SessionEventType = {
   CheckpointCreated: "checkpoint_created",
   TargetChanged: "target_changed",
   TargetCompletionVerification: "target_completion_verification",
+  // 回复审核 Response Review 生命周期（started/completed/failed/cancelled 由 payload.status 区分）。
+  AssistantReview: "assistant_review",
   SubagentSpawned: "subagent_spawned",
   SubagentMessage: "subagent_message",
   SubagentStopped: "subagent_stopped",
@@ -662,6 +665,32 @@ export interface TargetCompletionVerificationPayload {
   goalIteration?: number;
   anchorAssistantMessageId?: MessageId;
   anchorTurnId?: TurnId;
+}
+
+/** 回复审核 Response Review 生命周期状态；started 之后以 completed/failed/cancelled 收口。 */
+export type AssistantReviewStatus = "started" | "completed" | "failed" | "cancelled";
+
+export interface AssistantReviewPayload {
+  /** 单次审核生命周期标识；投影按 reviewId 归并同一审核的各状态事件。 */
+  reviewId: string;
+  /** 审核模式：append=轮后异步审核追加；regenerate=轮内审核闸（不通过则同轮续写修正）。 */
+  mode: ResponseReviewMode;
+  /** regenerate 模式的审核轮次（0 = 首次审核）；append 恒为 0。 */
+  round: number;
+  status: AssistantReviewStatus;
+  /** 被审核的 assistant 消息锚点；投影据此定位审核卡的挂载位置。 */
+  anchorAssistantMessageId?: MessageId;
+  anchorTurnId?: TurnId;
+  /** 实际发起审核调用的模型选择；供投影展示审核来源并核对用量归因。 */
+  reviewerModelSelection?: ModelSelection;
+  /** completed 时的审核结论：pass=通过；issues=不通过，body 为意见全文。 */
+  outcome?: "pass" | "issues";
+  /** 审核意见正文（completed）。 */
+  body?: string;
+  /** 失败原因（failed）：如 model_call_failed / unparseable / cancelled。 */
+  reason?: string;
+  /** regenerate 达到轮次上限后放行收口时置 true。 */
+  releasedAfterMaxRounds?: boolean;
 }
 
 export interface ModelRequestPayload {
@@ -1207,6 +1236,7 @@ export type SessionEventPayload =
   | NetworkRequestStatusPayload
   | ModelCompletePayload
   | TargetCompletionVerificationPayload
+  | AssistantReviewPayload
   | ModelErrorPayload
   | ToolCallScheduledPayload
   | ToolCallStartedPayload

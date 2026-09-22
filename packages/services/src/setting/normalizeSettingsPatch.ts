@@ -89,5 +89,14 @@ export function normalizeSettingsPatch(patch: Partial<AppSettings>): Partial<App
       trimmedProviderFamilyDomain.length > 0 ? normalizedPatch.providerFamilyDomain : undefined;
   }
 
+  if ("responseReviewModelSelection" in normalizedPatch) {
+    // 设置页的「跟随会话主模型」表示移除审核模型覆盖，审核调用回到跟随会话主模型。
+    // RPC 传输会吞 undefined，这里把 followSession 哨兵归一成 undefined，避免旧选择残留。
+    const selection = normalizedPatch.responseReviewModelSelection;
+    if (selection && "followSession" in selection) {
+      normalizedPatch.responseReviewModelSelection = undefined;
+    }
+  }
+
   return normalizedPatch;
 }

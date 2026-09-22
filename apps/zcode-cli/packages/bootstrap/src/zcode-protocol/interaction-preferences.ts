@@ -15,6 +15,16 @@ export async function updateInteractionPreferences(
   const snoozedInteractionCount =
     await context.v4Interactions.setAskUserQuestionAutoResolutionEnabled(enabled);
 
+  // 回复审核 Response Review：实时写入所有活跃会话 runtime，对后续 turn 生效；
+  // 已发起的审核允许完成。payload 缺省表示本次变更不涉及回复审核。
+  const responseReview = params.preferences.responseReview;
+  if (responseReview !== undefined) {
+    for (const record of context.sessions.values()) {
+      record.app.runtime.updateResponseReviewConfig(responseReview);
+      record.responseReview = responseReview;
+    }
+  }
+
   return {
     workspace: params.workspace,
     askUserQuestionAutoResolutionEnabled: enabled,

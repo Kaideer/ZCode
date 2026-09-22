@@ -1,13 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { getSettingsFile } from "@zcode/services/node";
+import { ensureDesktopApplicationNameEnv } from "./desktopApplicationNameEnv.js";
 
 interface ChromiumHardwareAccelerationApp {
   disableHardwareAcceleration(): void;
-}
-
-function resolveChromiumHardwareAccelerationSettingsFile(homePath: string = homedir()): string {
-  return join(homePath, ".zcode", "v2", "setting.json");
 }
 
 function extractBootstrapChromiumHardwareAccelerationEnabled(rawValue: unknown): boolean {
@@ -23,9 +19,10 @@ function extractBootstrapChromiumHardwareAccelerationEnabled(rawValue: unknown):
   return typeof enabled === "boolean" ? enabled : true;
 }
 
-function readBootstrapChromiumHardwareAccelerationEnabledFromDisk(
-  settingsFile: string = resolveChromiumHardwareAccelerationSettingsFile(),
-): boolean {
+function readBootstrapChromiumHardwareAccelerationEnabledFromDisk(): boolean {
+  // 与 dataBaseDir bootstrap 同理：先固化应用名身份，再按实例分区解析 setting.json。
+  ensureDesktopApplicationNameEnv();
+  const settingsFile = getSettingsFile();
   if (!existsSync(settingsFile)) {
     return true;
   }

@@ -3,8 +3,17 @@
  * 自旧版 ChatView/ChatViewEmptyState.tsx 恢复（该组件随旧 ChatView 删除，
  * i18n key `chat.empty.greeting.*` 一直保留）；边界时刻自动换档逻辑保真。
  * 手机远控复用同一组件，但继续保留 20px 紧凑标题；桌面草稿首页才按标题自身宽度适配。
+ *
+ * @format
  */
-import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react";
+
+import {
+  type CSSProperties,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState
+} from "react";
 import darkEmptyStateLogoUrl from "@/assets/Z.svg";
 import { cn } from "@/components/lib/utils.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
@@ -23,7 +32,9 @@ type ChatEmptyGreetingMessageId =
   | "chat.empty.greeting.evening"
   | "chat.empty.greeting.lateNight";
 
-function getChatEmptyGreetingMessageId(date: Date = new Date()): ChatEmptyGreetingMessageId {
+function getChatEmptyGreetingMessageId(
+  date: Date = new Date()
+): ChatEmptyGreetingMessageId {
   const hour = date.getHours();
 
   if (hour >= 5 && hour < 9) return "chat.empty.greeting.morningEarly";
@@ -46,14 +57,15 @@ function getNextChatEmptyGreetingDelayMs(date: Date = new Date()) {
   tomorrowFirstBoundary.setHours(GREETING_BOUNDARY_HOURS[0], 0, 0, 0);
 
   const nextBoundary =
-    candidates.find((candidate) => candidate.getTime() > date.getTime()) ?? tomorrowFirstBoundary;
+    candidates.find((candidate) => candidate.getTime() > date.getTime()) ??
+    tomorrowFirstBoundary;
 
   return Math.max(1, nextBoundary.getTime() - date.getTime());
 }
 
 function resolveGreetingFontSizePx({
   availableWidthPx,
-  naturalTextWidthPx,
+  naturalTextWidthPx
 }: {
   availableWidthPx: number;
   naturalTextWidthPx: number;
@@ -72,21 +84,33 @@ function resolveGreetingFontSizePx({
     GREETING_MIN_FONT_SIZE_PX,
     Math.min(
       GREETING_MAX_FONT_SIZE_PX,
-      Math.floor(GREETING_MAX_FONT_SIZE_PX * (availableWidthPx / naturalTextWidthPx)),
-    ),
+      Math.floor(
+        GREETING_MAX_FONT_SIZE_PX * (availableWidthPx / naturalTextWidthPx)
+      )
+    )
   );
 }
 
-export function ConversationDraftEmptyState({ className }: { className?: string }) {
+export function ConversationDraftEmptyState({
+  className
+}: {
+  className?: string;
+}) {
   const { intl } = useZCodeIntl();
   const isOfficeMode = useIsOfficeMode();
   const [greetingDate, setGreetingDate] = useState(() => new Date());
-  const [greetingFontSizePx, setGreetingFontSizePx] = useState(GREETING_MAX_FONT_SIZE_PX);
+  const [greetingFontSizePx, setGreetingFontSizePx] = useState(
+    GREETING_MAX_FONT_SIZE_PX
+  );
   const greetingContainerRef = useRef<HTMLParagraphElement | null>(null);
   const greetingMeasurementRef = useRef<HTMLSpanElement | null>(null);
-  const greeting = intl.formatMessage({
-    id: isOfficeMode ? "chat.empty.greeting.office" : getChatEmptyGreetingMessageId(greetingDate),
-  });
+  const greeting =
+    "凯哥提醒你 " +
+    intl.formatMessage({
+      id: isOfficeMode
+        ? "chat.empty.greeting.office"
+        : getChatEmptyGreetingMessageId(greetingDate)
+    });
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -114,12 +138,12 @@ export function ConversationDraftEmptyState({ className }: { className?: string 
         Number.parseFloat(containerStyle.paddingRight);
       const availableWidthPx = Math.max(
         0,
-        container.getBoundingClientRect().width - horizontalPaddingPx,
+        container.getBoundingClientRect().width - horizontalPaddingPx
       );
       const naturalTextWidthPx = measurement.getBoundingClientRect().width;
       const nextFontSizePx = resolveGreetingFontSizePx({
         availableWidthPx,
-        naturalTextWidthPx,
+        naturalTextWidthPx
       });
 
       setGreetingFontSizePx((currentFontSizePx) => {
@@ -130,7 +154,7 @@ export function ConversationDraftEmptyState({ className }: { className?: string 
           availableWidthPx: Math.round(availableWidthPx),
           naturalTextWidthPx: Math.round(naturalTextWidthPx),
           previousFontSizePx: currentFontSizePx,
-          nextFontSizePx,
+          nextFontSizePx
         });
         return nextFontSizePx;
       });
@@ -171,14 +195,14 @@ export function ConversationDraftEmptyState({ className }: { className?: string 
     <div
       className={cn(
         "relative mb-10 flex w-full max-w-2xl flex-col items-center justify-center gap-6 text-foreground sm:mb-8",
-        className,
+        className
       )}
     >
       <div
         aria-hidden="true"
         className={cn(
           "pointer-events-none absolute left-1/2 top-1/2 aspect-[5/4] w-[min(72vw,25rem)] -mt-10",
-          "-translate-x-1/2 -translate-y-1/2 text-foreground-subtlest",
+          "-translate-x-1/2 -translate-y-1/2 text-foreground-subtlest"
         )}
       >
         <ZCodeEmptyStateLogo className="h-full w-full" />
@@ -188,12 +212,12 @@ export function ConversationDraftEmptyState({ className }: { className?: string 
         data-v4-draft-greeting="true"
         style={
           {
-            "--v4-draft-greeting-font-size": `${greetingFontSizePx}px`,
+            "--v4-draft-greeting-font-size": `${greetingFontSizePx}px`
           } as CSSProperties
         }
         className={cn(
           "relative z-10 w-full px-4 text-center font-medium text-foreground",
-          "text-[length:var(--v4-draft-greeting-font-size)]/[1.2]",
+          "text-[length:var(--v4-draft-greeting-font-size)]/[1.2]"
         )}
       >
         <span
@@ -221,7 +245,7 @@ function ZCodeEmptyStateLogo({ className }: { className?: string }) {
           "[-webkit-mask-image:linear-gradient(to_bottom,black_0%,transparent_70%,transparent_100%)]",
           "[-webkit-mask-repeat:no-repeat] [-webkit-mask-size:100%_100%]",
           "[mask-image:linear-gradient(to_bottom,black_0%,transparent_70%,transparent_100%)]",
-          "[mask-repeat:no-repeat] [mask-size:100%_100%]",
+          "[mask-repeat:no-repeat] [mask-size:100%_100%]"
         )}
         width="400"
         height="320"

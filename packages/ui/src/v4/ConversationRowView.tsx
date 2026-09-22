@@ -5,12 +5,15 @@ import {
   ArchiveIcon,
   ArrowRightLeftIcon,
   CheckIcon,
+  ChevronDownIcon,
   CopyIcon,
   FileClockIcon,
   FileIcon,
   GitBranchIcon,
   GoalIcon,
   PencilIcon,
+  ShieldAlertIcon,
+  ShieldCheckIcon,
   ThumbsDownIcon,
   ThumbsUpIcon,
   TrendingUpDownIcon,
@@ -33,6 +36,7 @@ import {
 import type {
   AttachmentRef,
   ArtifactRow,
+  AssistantReviewRow,
   AssistantTextRow,
   CommandAck,
   ConversationRow,
@@ -1886,6 +1890,101 @@ const TimelineMarkerRowView = memo(function TimelineMarkerRowView({
   );
 });
 
+/**
+ * assistantReview 行渲染：回复审核 Response Review 卡片。
+ * 状态行与 goalVerify marker 同款分隔线；审核意见正文可展开/收起，
+ * issues 默认展开（用户最需要看到不通过的原因）。
+ */
+const AssistantReviewRowView = memo(function AssistantReviewRowView({
+  row,
+}: {
+  row: AssistantReviewRow;
+}) {
+  const { intl } = useZCodeIntl();
+  const running = row.state === "running";
+  const body = row.body?.trim() ? row.body : undefined;
+  const [expanded, setExpanded] = useState(row.outcome === "issues");
+
+  const statusId = running
+    ? "chat.responseReview.reviewing"
+    : row.state === "failed"
+      ? "chat.responseReview.failed"
+      : row.outcome === "issues"
+        ? "chat.responseReview.issues"
+        : "chat.responseReview.passed";
+  const icon =
+    row.state === "failed" || row.outcome === "issues" ? (
+      <ShieldAlertIcon className="size-3.5" aria-hidden="true" />
+    ) : (
+      <ShieldCheckIcon className="size-3.5" aria-hidden="true" />
+    );
+
+  return (
+    <div
+      data-row-id={row.rowId}
+      data-row-kind="assistantReview"
+      data-status={row.state}
+      data-testid={testId(TID_V4_ROW, String(row.rowId))}
+    >
+      <div className="flex w-full items-center gap-3 px-4 py-2 text-ui-base text-[var(--color-foreground-subtle)]">
+        <div aria-hidden="true" className="h-px min-w-8 flex-1 bg-border/50" />
+        <button
+          type="button"
+          disabled={!body}
+          onClick={body ? () => setExpanded((value) => !value) : undefined}
+          className={cn(
+            "inline-flex min-w-0 shrink items-center justify-center gap-1.5 text-center leading-5",
+            body ? "cursor-pointer" : "cursor-default",
+          )}
+        >
+          {running ? null : icon}
+          <span
+            className={cn(
+              "min-w-0 break-words",
+              running && "animated-gradient-text font-medium",
+            )}
+          >
+            {intl.formatMessage({ id: statusId })}
+            {row.mode === "regenerate" && row.round > 0 ? (
+              <>
+                <span aria-hidden="true"> · </span>
+                {intl.formatMessage(
+                  { id: "chat.responseReview.roundLabel" },
+                  { count: String(row.round + 1) },
+                )}
+              </>
+            ) : null}
+            {row.reviewerLabel ? (
+              <>
+                <span aria-hidden="true"> · </span>
+                {row.reviewerLabel}
+              </>
+            ) : null}
+            {row.releasedAfterMaxRounds === true ? (
+              <>
+                <span aria-hidden="true"> · </span>
+                {intl.formatMessage({ id: "chat.responseReview.releasedAfterMaxRounds" })}
+              </>
+            ) : null}
+          </span>
+          {body ? (
+            <ChevronDownIcon
+              className={cn("size-3.5 transition-transform", expanded ? "rotate-180" : undefined)}
+              aria-hidden="true"
+            />
+          ) : null}
+        </button>
+        <div aria-hidden="true" className="h-px min-w-8 flex-1 bg-border/50" />
+      </div>
+      {body && expanded ? (
+        <div className="mx-4 mb-2 rounded-lg border border-border/60 bg-surface px-3 py-2 text-ui-base leading-6 text-foreground-subtle">
+          <MessageResponse>{body}</MessageResponse>
+        </div>
+      ) : null}
+    </div>
+  );
+});
+
 const ToolCallRowView = memo(function ToolCallRowView({
   row,
   context,
@@ -2103,6 +2202,8 @@ function ConversationRowViewImpl({
       return <TurnHeaderRowView row={row} />;
     case "timelineMarker":
       return <TimelineMarkerRowView row={row} context={context} />;
+    case "assistantReview":
+      return <AssistantReviewRowView row={row} />;
     case "toolCall":
       // 只在 ToolCallBlock 内返回 null 会留下空 RowShell 和多余间距；
       // 在行分发处按同一工具身份规则裁剪，设置关闭时不产生任何 Todo DOM。

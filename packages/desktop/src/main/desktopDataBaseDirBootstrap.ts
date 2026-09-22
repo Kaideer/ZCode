@@ -1,11 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
-import { setDataBaseDir } from "@zcode/services/node";
-
-function resolveBootstrapSettingsFile(homePath: string = homedir()): string {
-  return join(homePath, ".zcode", "v2", "setting.json");
-}
+import { setDataBaseDir, getSettingsFile } from "@zcode/services/node";
+import { ensureDesktopApplicationNameEnv } from "./desktopApplicationNameEnv.js";
 
 function extractBootstrapDataBaseDir(rawValue: unknown): string | null {
   if (!rawValue || typeof rawValue !== "object") {
@@ -21,9 +16,7 @@ function extractBootstrapDataBaseDir(rawValue: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function readBootstrapDataBaseDirFromDisk(
-  settingsFile: string = resolveBootstrapSettingsFile(),
-): string | null {
+function readBootstrapDataBaseDirFromDisk(settingsFile: string): string | null {
   if (!existsSync(settingsFile)) {
     return null;
   }
@@ -37,7 +30,10 @@ function readBootstrapDataBaseDirFromDisk(
 }
 
 export function applyEarlyDataBaseDirBootstrap(): string | null {
-  const dataBaseDir = readBootstrapDataBaseDirFromDisk();
+  // 本模块在 desktopRuntimeEnv 求值前执行：先幂等固化应用名身份，
+  // 再按实例分区解析 setting.json，保证 Dev 实例读到自己的 dataBaseDir。
+  ensureDesktopApplicationNameEnv();
+  const dataBaseDir = readBootstrapDataBaseDirFromDisk(getSettingsFile());
   if (dataBaseDir) {
     // 启动早期就把 dataBaseDir 注入进来，避免 logger / crashReporter 先按默认 HOME 建目录，
     // 导致后续再切换到自定义目录时，日志和 crash dump 落在两套路径里。

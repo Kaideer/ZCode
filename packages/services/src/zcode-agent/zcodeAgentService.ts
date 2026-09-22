@@ -1465,6 +1465,10 @@ export function createZCodeAgentService(
             preferences: {
               askUserQuestionAutoResolutionEnabled:
                 params.preferences.askUserQuestionAutoResolutionEnabled,
+              // 回复审核配置随设置变更实时下发；未涉及时不带该字段，CLI 保持现值。
+              ...(params.preferences.responseReview
+                ? { responseReview: params.preferences.responseReview }
+                : {}),
             },
           },
           zcodeWorkspaceUpdateInteractionPreferencesResultSchema,

@@ -17,6 +17,7 @@ import {
   zcodeProtocolErrorCodes,
   type ZCodeDeliveryKind,
   type ModelSelection,
+  type ResponseReviewConfig,
   type ZCodeModelContextBudgetStrategy,
   type ZCodeProtocolMessage,
   type ZCodeProtocolMethod,
@@ -84,6 +85,8 @@ export interface ZCodeProtocolSessionRecord {
   memoryEnabled: boolean;
   nativeSearchEnhancementsEnabled: boolean;
   modelContextBudgetStrategy: ZCodeModelContextBudgetStrategy;
+  /** 会话创建时确定的回复审核 Response Review 配置；fork 等 inherit 场景按父记录继承。 */
+  responseReview?: ResponseReviewConfig;
   createdAt: number;
   deliveryKind?: ZCodeDeliveryKind;
   /**

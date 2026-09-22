@@ -106,6 +106,8 @@ export interface RegularTurnLoopState {
   repeatedToolCallStreakCount: number;
   pendingStreamRecoveryRequest?: PendingStreamRecoveryRequest;
   stopHookContinuationCount: number;
+  /** 回复审核（regenerate 模式）在当前轮内的同轮续写次数；达到配置上限后放行收口。 */
+  responseReviewContinuationCount: number;
   /** 最终成功 product turn 的 raw transcript 起点；只有确认不再 continue 时才赋值。 */
   stableProductStartMessageId?: MessageId;
   /** 最终成功 assistant boundary；与 stableProductStartMessageId 成对出现。 */

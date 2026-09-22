@@ -1817,6 +1817,23 @@ const enUS: Record<string, string> = {
   "settings.nativeSearchEnhancementsDescription":
     "Use enhanced Find and Grep in new sessions and sessions restored after an app restart. Active sessions keep their current setting; Find remains unchanged on Windows.",
   "settings.memory": "Memory",
+  "settings.responseReview.title": "Response Review",
+  "settings.responseReview.enabled": "Enable response review",
+  "settings.responseReview.enabledDescription":
+    "After the main model produces a conclusion, a second model reviews it for factual accuracy, logical consistency, completeness, and instruction compliance. The review is shown alongside the conclusion.",
+  "settings.responseReview.mode": "Review mode",
+  "settings.responseReview.modeDescription": "Choose how review results are presented and handled.",
+  "settings.responseReview.mode.append": "Stream first, review appended",
+  "settings.responseReview.mode.regenerate": "Review-regenerate loop",
+  "settings.responseReview.model": "Reviewer model",
+  "settings.responseReview.modelDescription":
+    "The model that performs the review; follows the session model by default.",
+  "settings.responseReview.model.followSession": "Follow session model",
+  "settings.responseReview.thought": "Thought level",
+  "settings.responseReview.thoughtDescription":
+    "Reasoning level of the reviewer model; options depend on the selected model.",
+  "settings.responseReview.thought.unset": "Model default",
+  "settings.responseReview.saveError": "Failed to save response review settings",
   "settings.memory.workspaceMemory": "Workspace Memory",
   "settings.memoryDescription":
     "Save and reuse long-term context in workspaces. Applies to new sessions and may increase model requests and token costs.",
@@ -4410,6 +4427,12 @@ const enUS: Record<string, string> = {
   "chat.contextCompaction.interrupted": "Context compression interrupted",
   "chat.contextCompaction.retry": "Retry",
   "chat.goalVerification.checking": "Verifying goal",
+  "chat.responseReview.reviewing": "Reviewing…",
+  "chat.responseReview.passed": "Review passed",
+  "chat.responseReview.issues": "Review issues found",
+  "chat.responseReview.failed": "Review incomplete",
+  "chat.responseReview.roundLabel": "Review round {count}",
+  "chat.responseReview.releasedAfterMaxRounds": "Round limit reached; released as is",
   "chat.goalVerification.incomplete": "Goal incomplete, continuing",
   "chat.goalVerification.complete": "Goal complete, ending task",
   "chat.goalVerification.cancelled": "Goal verification interrupted",

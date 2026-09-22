@@ -1,16 +1,18 @@
-import { HookEventName, TurnMachineImpl, createMessageId, createPartId } from "../deps.js";
+import { HookEventName, SessionEventType, TurnMachineImpl, createMessageId, createPartId } from "../deps.js";
 import type { MessageId, Model, TraceContext } from "../deps.js";
+import { DEFAULT_RESPONSE_REVIEW_MAX_ROUNDS } from "@zcode/shared";
 import { emptyTokenUsageInfo, toTokenUsageInfo } from "../helpers/index.js";
 import type { RuntimeModelTextResult } from "../types.js";
 import type { AgentRuntimeInternal } from "../internal.js";
 import { drainInlineGuideForNextRequest } from "./turn-guide-drain.js";
 import { recordModelHistoryRound, type RegularTurnLoopState } from "./turn-loop-state.js";
+import { runResponseReview } from "./response-review-sidecar.js";
 import {
   appendTurnRequestEntries,
   commitAssistantToTurnRequest,
   commitTurnRequestEntries,
 } from "./turn-output-token-continuation.js";
-import { createRuntimeAssistantEntry } from "../../agent/message-history.js";
+import { createRuntimeAssistantEntry, systemReminderAttachmentEntry } from "../../agent/message-history.js";
 
 interface AssistantPersistenceAnchor {
   latestAssistantMessageId: AgentRuntimeInternal["latestAssistantMessageId"];
@@ -215,6 +217,59 @@ export async function finishModelStepWithoutToolCalls(
     state.turnMachine = new TurnMachineImpl(state.turnMachine.aggregateResults());
     return "continue";
   }
+  // ── 回复审核 Response Review 闸 ──
+  // assistant 文本已持久化、轮未收口，是「结论已出、轮未结束」的干净位置；
+  // 不通过则审核意见注入历史并同轮续写修正；审核失败与达到轮次上限都按通过放行。
+  const responseReviewConfig = this.config.responseReview;
+  if (responseReviewConfig?.enabled === true && responseReviewConfig.mode === "regenerate") {
+    const maxRounds = positiveReviewMaxRounds(responseReviewConfig.maxRounds);
+    if (state.responseReviewContinuationCount >= maxRounds) {
+      // 达到轮次上限：不再发起审核，留一张「已放行」终态卡作为投影的明确收口事实。
+      await this.appendEvent(
+        this.createEvent(
+          SessionEventType.AssistantReview,
+          {
+            reviewId: `review_${crypto.randomUUID()}`,
+            mode: "regenerate",
+            round: state.responseReviewContinuationCount,
+            status: "completed",
+            outcome: "pass",
+            releasedAfterMaxRounds: true,
+            anchorAssistantMessageId: options.assistantMessageId,
+            anchorTurnId: state.turnId,
+          },
+          state.turnTraceContext,
+        ),
+        state.turnTraceContext,
+      );
+    } else if (state.modelResponse.trim().length > 0) {
+      const review = await runResponseReview.call(this, {
+        assistantText: state.modelResponse,
+        mode: "regenerate",
+        round: state.responseReviewContinuationCount,
+        traceContext: state.turnTraceContext,
+        anchorAssistantMessageId: options.assistantMessageId,
+        anchorTurnId: state.turnId,
+        abortSignal: state.turnAbortSignal,
+      });
+      if (review && review.outcome === "issues") {
+        state.responseReviewContinuationCount += 1;
+        const reviewEntry = systemReminderAttachmentEntry(
+          "response_review",
+          formatResponseReviewContinuationBody(
+            review.body,
+            state.responseReviewContinuationCount,
+            maxRounds,
+          ),
+        );
+        this.messageHistory.addEntries([reviewEntry]);
+        appendTurnRequestEntries(state.turnRequestState, [reviewEntry]);
+        state.turnMachine = new TurnMachineImpl(state.turnMachine.aggregateResults());
+        return "continue";
+      }
+      // review === null 即审核失败/中断：按通过放行，审核是增强不是门禁。
+    }
+  }
   if (state.activeTurn) {
     // FIFO barrier / reservation 阻止本轮安全 inline 时，仍保留既有权威 queue 兜底；
     // 正常可消费的 text-only guide 已在上方作为 user-role continuation drain。
@@ -234,4 +289,29 @@ export async function finishModelStepWithoutToolCalls(
     state.turnMachine.complete(state.modelResponse, "success"),
   );
   return "break";
+}
+
+/** 审核意见注入正文的最大长度；超长截断，避免意见本身撑大下一轮请求。 */
+const MAX_REVIEW_FEEDBACK_CHARS = 4_000;
+
+/** 组装同轮续写用的审核意见正文：明确轮次、意见全文与修正要求。 */
+function formatResponseReviewContinuationBody(
+  feedback: string,
+  round: number,
+  maxRounds: number,
+): string {
+  const body = [
+    `回复审核（第 ${round}/${maxRounds} 轮）未通过，审核意见如下：`,
+    feedback.trim().length > 0 ? feedback.trim() : "（审核未给出具体意见）",
+    "请根据审核意见修正你的上一段回复：直接输出修正后的完整内容，不要重复解释审核过程。",
+  ].join("\n\n");
+  return body.length <= MAX_REVIEW_FEEDBACK_CHARS
+    ? body
+    : `${body.slice(0, MAX_REVIEW_FEEDBACK_CHARS)}...`;
+}
+
+function positiveReviewMaxRounds(value: number | undefined): number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? Math.floor(value)
+    : DEFAULT_RESPONSE_REVIEW_MAX_ROUNDS;
 }

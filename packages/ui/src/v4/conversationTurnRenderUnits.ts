@@ -143,6 +143,15 @@ function isTurnTrailingArtifactRow(row: AssistantWorkRow): boolean {
   return row.kind === "artifact";
 }
 
+/**
+ * assistantReview 审核卡是被审核轮的附加终态行，与 artifact 同理留在轮尾：
+ * 它出现在 assistantText 之后，若留在 flow 内会顶掉「最终正文」折叠锚点，
+ * 把整轮过程默认展开；归 tail 后折叠组与锚点行为与无审核时完全一致。
+ */
+function isTurnTrailingReviewRow(row: AssistantWorkRow): boolean {
+  return row.kind === "assistantReview";
+}
+
 function splitTurnTailRows(rows: readonly AssistantWorkRow[]): {
   flowRows: AssistantWorkRow[];
   tailRows: AssistantWorkRow[];
@@ -151,7 +160,8 @@ function splitTurnTailRows(rows: readonly AssistantWorkRow[]): {
   while (
     tailStart > 0 &&
     (isTurnEndingTimelineMarkerRow(rows[tailStart - 1]!) ||
-      isTurnTrailingArtifactRow(rows[tailStart - 1]!))
+      isTurnTrailingArtifactRow(rows[tailStart - 1]!) ||
+      isTurnTrailingReviewRow(rows[tailStart - 1]!))
   ) {
     tailStart -= 1;
   }

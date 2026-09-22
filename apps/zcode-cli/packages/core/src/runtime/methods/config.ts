@@ -103,6 +103,14 @@ export function setSessionModelSelection(
   this.sessionModelSelection = selection && cloneModelSelection(selection);
 }
 
+/** 实时更新回复审核 Response Review 配置；对后续 turn 生效，已发起的审核允许完成。 */
+export function updateResponseReviewConfig(
+  this: AgentRuntimeInternal,
+  config: AgentRuntimeConfig["responseReview"],
+): void {
+  this.config.responseReview = config;
+}
+
 export function getProjectId(this: AgentRuntimeInternal): ProjectId {
   // Bash cd 会改变执行 cwd，但 project identity 不能随工具内 cwd 漂移。
   return projectIdFromDirectory(this.workspaceRoot);

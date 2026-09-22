@@ -400,6 +400,12 @@ function projectRow(row: ConversationRow, index: number, ids: PublicIdMaps): Con
         "invalid_conversation",
         "Hook invocation rows are not part of the V1 public projection",
       );
+    case "assistantReview":
+      // 分享 V1 不承载审核卡：sanitize 阶段已剥离该行；漏网到达这里按显式闸门拒绝。
+      throwProjectionError(
+        "invalid_conversation",
+        "Assistant review rows are not part of the V1 public projection",
+      );
   }
 }
 

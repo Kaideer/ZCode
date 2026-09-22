@@ -3,6 +3,7 @@
 // 结构变化换整行（row.upserted），文本增长用 append（row.delta）；turn 是 row 上的标签不是容器。
 import { z } from "zod";
 import { executionOutputPreviewSchema } from "../execution-output-preview.js";
+import { responseReviewModeSchema } from "../response-review.js";
 import { timestampSchema } from "./core.js";
 import { backgroundResultOriginMetaSchema, workflowLaunchMetaSchema } from "./workflow-row-meta.js";
 
@@ -415,6 +416,27 @@ export const timelineMarkerRowSchema = z.object({
 });
 export type TimelineMarkerRow = z.infer<typeof timelineMarkerRowSchema>;
 
+// assistantReview：回复审核 Response Review 卡片行。
+// 由 CLI 投影裁决落位（固定轮尾、不折叠）；UI 只按 state/outcome 装配，不得反推审核归属。
+// 版本偏斜：闭集 union 加 kind，旧宿主收到该行 parse 失败丢弃，CLI 与桌面同批发布下接受。
+export const assistantReviewRowSchema = z.object({
+  ...rowBaseFields,
+  kind: z.literal("assistantReview"),
+  mode: responseReviewModeSchema,
+  // regenerate 模式的审核轮次（0 = 首次审核）；append 模式恒为 0。
+  round: z.number().int().nonnegative(),
+  state: z.enum(["running", "complete", "failed"]),
+  // 审核结论；complete 时必带。
+  outcome: z.enum(["pass", "issues"]).optional(),
+  // 审核意见正文；complete 时为意见全文，failed 时为失败原因。
+  body: z.string().optional(),
+  // 审核模型展示名（provider/model$reasoningLevel）。
+  reviewerLabel: z.string().optional(),
+  // regenerate 达到轮次上限后放行收口时置 true。
+  releasedAfterMaxRounds: z.boolean().optional(),
+});
+export type AssistantReviewRow = z.infer<typeof assistantReviewRowSchema>;
+
 export const conversationRowSchema = z.discriminatedUnion("kind", [
   turnHeaderRowSchema,
   userInputRowSchema,
@@ -425,6 +447,7 @@ export const conversationRowSchema = z.discriminatedUnion("kind", [
   subagentRowSchema,
   hookInvocationRowSchema,
   timelineMarkerRowSchema,
+  assistantReviewRowSchema,
 ]);
 export type ConversationRow = z.infer<typeof conversationRowSchema>;
 export type ConversationRowKind = ConversationRow["kind"];
